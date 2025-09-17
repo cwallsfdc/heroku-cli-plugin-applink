@@ -35,6 +35,7 @@ USAGE
 * [`heroku datacloud:authorizations:remove DEVELOPER_NAME`](#heroku-datacloudauthorizationsremove-developer_name)
 * [`heroku datacloud:connect CONNECTION_NAME`](#heroku-datacloudconnect-connection_name)
 * [`heroku datacloud:data-action-target:create LABEL`](#heroku-dataclouddata-action-targetcreate-label)
+* [`heroku datacloud:deploy`](#heroku-dataclouddeploy)
 * [`heroku datacloud:disconnect CONNECTION_NAME`](#heroku-dataclouddisconnect-connection_name)
 * [`heroku salesforce:authorizations:add DEVELOPER_NAME`](#heroku-salesforceauthorizationsadd-developer_name)
 * [`heroku salesforce:authorizations:remove DEVELOPER_NAME`](#heroku-salesforceauthorizationsremove-developer_name)
@@ -231,6 +232,34 @@ DESCRIPTION
 ```
 
 _See code: [src/commands/datacloud/data-action-target/create.ts](https://github.com/heroku/heroku-cli-plugin-applink/blob/v1.0.1/src/commands/datacloud/data-action-target/create.ts)_
+
+## `heroku datacloud:deploy`
+
+Zip and deploy Data Cloud Custom Code directly via Salesforce SSOT APIs using stored AppLink authorization
+
+```
+USAGE
+  $ heroku datacloud:deploy -a <value> --authorization-name <value> --path <value> --name <value> --runtime <value>
+    [--addon <value>] [-r <value>] [--description <value>] [--env <value>...] [--timeout <value>] [--memory <value>]
+
+FLAGS
+  -a, --app=<value>                 (required) app to run command against
+  -r, --remote=<value>              git remote of app to use
+      --addon=<value>               unique name or ID of an AppLink add-on
+      --authorization-name=<value>  (required) AppLink Data Cloud authorization developer name to use
+      --description=<value>         Package description
+      --env=<value>...              Environment variables as KEY=VALUE; repeatable
+      --memory=<value>              Memory size in MB
+      --name=<value>                (required) Data Custom Code package/function name
+      --path=<value>                (required) Path to source directory to zip and deploy
+      --runtime=<value>             (required) Runtime, e.g., python3.11
+      --timeout=<value>             Function timeout in seconds
+
+DESCRIPTION
+  Zip and deploy Data Cloud Custom Code directly via Salesforce SSOT APIs using stored AppLink authorization
+```
+
+_See code: [src/commands/datacloud/deploy.ts](https://github.com/heroku/heroku-cli-plugin-applink/blob/v1.0.1/src/commands/datacloud/deploy.ts)_
 
 ## `heroku datacloud:disconnect CONNECTION_NAME`
 
