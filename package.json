@@ -74,10 +74,10 @@
   },
   "repository": "heroku/heroku-cli-plugin-applink",
   "scripts": {
-    "prepare": "yarn build",
+    "prepare": "npm run build",
     "build": "rm -rf dist && tsc -b && oclif manifest && oclif readme && mv oclif.manifest.json ./dist/oclif.manifest.json && cp README.md ./dist/README.md",
     "lint": "eslint . --ext .ts --config .eslintrc.json",
-    "posttest": "yarn lint",
+    "posttest": "npm run lint",
     "test": "nyc mocha --forbid-only",
     "test:local": "nyc mocha",
     "version": "oclif readme && git add README.md"

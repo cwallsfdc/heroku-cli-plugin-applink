@@ -13,11 +13,14 @@ import {
   sso_response,
 } from '../../helpers/fixtures'
 
-// Helper to create a small temp folder with one file
-const createTempSource = (): string => {
+// Helper to create a payload directory with required files
+const createPayloadSource = (): string => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dcc-deploy-'))
-  fs.writeFileSync(path.join(dir, 'index.txt'), 'hello')
-  return dir
+  const payload = path.join(dir, 'payload')
+  fs.mkdirSync(payload)
+  fs.writeFileSync(path.join(payload, 'config.json'), JSON.stringify({version: '1'}))
+  fs.writeFileSync(path.join(payload, 'entrypoint.py'), 'print("hello")\n')
+  return payload
 }
 
 describe('datacloud:deploy', function () {
@@ -57,7 +60,7 @@ describe('datacloud:deploy', function () {
   })
 
   it('zips and deploys via SSOT using stored authorization', async function () {
-    const src = createTempSource()
+    const payloadDir = createPayloadSource()
 
     // AppLink returns access token + instance url for authorization
     applinkApi
@@ -68,12 +71,20 @@ describe('datacloud:deploy', function () {
         instance_url: 'https://instance.test.salesforce.com',
       })
 
-    // SSOT deploy accepts form and returns a status URL to poll
+    // SSOT deploy (step 1): create; returns fileUploadUrl and status_url
+    const uploadHost = 'https://mock-bucket.s3.us-west-2.amazonaws.com'
+    const uploadPath = '/sfdrive/mock/deployment.zip'
     salesforceApi
       .post('/services/data/v63.0/ssot/data-custom-code')
       .reply(200, {
-        status_url: 'https://instance.test.salesforce.com/services/data/v63.0/ssot/deploy-status/abc',
+        fileUploadUrl: `${uploadHost}${uploadPath}?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20250101T000000Z`,
+        status_url: '/services/data/v63.0/ssot/deploy-status/abc',
       })
+
+    // SSOT deploy (step 2): S3 PUT upload
+    nock(uploadHost)
+      .put(uploadPath)
+      .reply(200, {})
 
     // Polling returns success
     salesforceApi
@@ -84,9 +95,8 @@ describe('datacloud:deploy', function () {
     await runCommand(Cmd, [
       '--app=my-app',
       '--authorization-name=my-auth',
-      `--path=${src}`,
+      `--path=${payloadDir}`,
       '--name=my-func',
-      '--runtime=python3.11',
     ])
 
     expect(stderr.output).to.contain('Retrieving Data Cloud authorization')

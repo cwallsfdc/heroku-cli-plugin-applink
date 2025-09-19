@@ -41,5 +41,14 @@
     "unicorn/prefer-module": "off",
     "unicorn/prefer-node-protocol": "off",
     "unicorn/prefer-regexp-test": "off"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["test/**/*.ts"],
+      "rules": {
+        "prefer-arrow-callback": "off",
+        "mocha/no-mocha-arrows": "off"
+      }
+    }
+  ]
 }
