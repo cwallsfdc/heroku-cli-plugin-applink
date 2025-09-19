@@ -96,14 +96,14 @@ export default class Publish extends Command {
       authorization_permission_set_name: authorizationPermissionSetName,
     }
     const formData = new FormData()
+    // Use Uint8Array/TextEncoder for Node.js compatibility with Blob parts
     formData.append('metadata', new Blob([
-      compressedContent,
+      new Uint8Array(compressedContent),
     ], {
       type: 'application/zip',
-    }
-    ))
+    }))
     formData.append('app_request', new Blob([
-      JSON.stringify(appRequestContent),
+      new TextEncoder().encode(JSON.stringify(appRequestContent)),
     ], {
       type: 'application/json',
     }))

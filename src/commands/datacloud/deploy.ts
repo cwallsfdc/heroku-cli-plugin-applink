@@ -220,8 +220,9 @@ export default class Deploy extends Base {
     const artifactField = names?.artifact || 'artifact'
     const metaField = names?.meta || 'deployment'
     const formData = new FormData()
-    formData.append(artifactField, new Blob([zipBuffer], {type: 'application/zip'}))
-    formData.append(metaField, new Blob([JSON.stringify(metadata)], {type: 'application/json'}))
+    // Use Uint8Array/TextEncoder for Node.js compatibility
+    formData.append(artifactField, new Blob([new Uint8Array(zipBuffer)], {type: 'application/zip'}))
+    formData.append(metaField, new Blob([new TextEncoder().encode(JSON.stringify(metadata))], {type: 'application/json'}))
     return formData
   }
 
