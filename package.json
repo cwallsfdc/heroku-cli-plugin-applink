@@ -64,6 +64,9 @@
       "datacloud": {
         "description": "manage Heroku app connections to a Data Cloud Org"
       },
+      "datacloud.compute": {
+        "description": "Data Cloud Compute commands"
+      },
       "applink": {
         "description": "access information and generate Heroku AppLink projects"
       },

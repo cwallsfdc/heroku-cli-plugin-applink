@@ -4,14 +4,14 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {stderr, stdout} from 'stdout-stderr'
-import {runCommand} from '../../run-command'
-import Cmd from '../../../src/commands/datacloud/deploy'
+import {runCommand} from '../../../run-command'
+import Cmd from '../../../../src/commands/datacloud/compute/deploy'
 import {
   addon,
   addonAttachment,
   app,
   sso_response,
-} from '../../helpers/fixtures'
+} from '../../../helpers/fixtures'
 
 // Helper to create a payload directory with required files
 const createPayloadSource = (): string => {
@@ -23,7 +23,7 @@ const createPayloadSource = (): string => {
   return payload
 }
 
-describe('datacloud:deploy', function () {
+describe('datacloud:compute:deploy', function () {
   const {env} = process
   let api: nock.Scope
   let applinkApi: nock.Scope
@@ -64,7 +64,7 @@ describe('datacloud:deploy', function () {
 
     // AppLink returns access token + instance url for authorization
     applinkApi
-      .get('/addons/01234567-89ab-cdef-0123-456789abcdef/authorizations/datacloud/my-auth')
+      .get('/addons/01234567-89ab-cdef-0123-456789abcdef/authorizations/my-auth')
       .reply(200, {
         org: {developer_name: 'my-auth'},
         access_token: 'ATOKEN',
@@ -84,6 +84,7 @@ describe('datacloud:deploy', function () {
     // SSOT deploy (step 2): S3 PUT upload
     nock(uploadHost)
       .put(uploadPath)
+      .query(true)
       .reply(200, {})
 
     // Polling returns success
@@ -94,7 +95,7 @@ describe('datacloud:deploy', function () {
 
     await runCommand(Cmd, [
       '--app=my-app',
-      '--authorization-name=my-auth',
+      '--authorization=my-auth',
       `--path=${payloadDir}`,
       '--name=my-func',
     ])

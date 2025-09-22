@@ -4,7 +4,7 @@ import axios from 'axios'
 import AdmZip from 'adm-zip'
 import fs from 'node:fs'
 import path from 'node:path'
-import Base from '../../lib/base'
+import Base from '../../../lib/base'
 
 type AuthorizationResponse = {
   org: {
@@ -35,7 +35,7 @@ export default class Deploy extends Base {
     remote: flags.remote(),
 
     // Mirror Python CLI deploy flags (core subset)
-    'authorization-name': flags.string({required: true, description: 'AppLink Data Cloud authorization developer name to use'}),
+    authorization: flags.string({required: true, description: 'AppLink Data Cloud authorization developer name to use'}),
     path: flags.string({required: false, default: 'payload', description: 'Path to source directory to zip and deploy. Defaults to \'payload\' (expects payload/config.json and payload/entrypoint.py)'}),
     name: flags.string({required: true, description: 'Data Custom Code package/function name'}),
     description: flags.string({description: 'Package description'}),
@@ -48,7 +48,7 @@ export default class Deploy extends Base {
   protected deployDebug(message: string, info?: Record<string, unknown>): void {
     try {
       if (!process.env.DEBUG) return
-      const line = `[datacloud:deploy] ${message}`
+      const line = `[datacloud:compute:deploy] ${message}`
       if (info && Object.keys(info).length > 0) {
         process.stderr.write(`${line} ${JSON.stringify(info)}\n`)
       } else {
@@ -156,6 +156,7 @@ export default class Deploy extends Base {
       accessToken = accessToken || (detail?.access_token as string | undefined)
       instanceUrl = instanceUrl || (detail?.instance_url as string | undefined)
     }
+
     if (!accessToken || !instanceUrl) {
       accessToken = accessToken || (detail?.credentials?.access_token as string | undefined)
       instanceUrl = instanceUrl || (detail?.credentials?.instance_url as string | undefined)
@@ -232,7 +233,7 @@ export default class Deploy extends Base {
     const candidates = this.buildSsotCandidates(instanceUrl, apiVersion)
     this.deployDebug('SSOT candidates', {candidates})
     if (process.env.DEBUG) {
-      ux.info(`[datacloud:deploy] SSOT candidates ${JSON.stringify({candidates})}`)
+      ux.info(`[datacloud:compute:deploy] SSOT candidates ${JSON.stringify({candidates})}`)
     }
 
     ux.action.start(`Deploying ${pkgName} to Data Cloud`)
@@ -247,6 +248,7 @@ export default class Deploy extends Base {
 
       ux.error('Create deployment response did not include file upload URL', {exit: 1})
     }
+
     const uploadResp = await this.uploadArtifact({accessToken, uploadUrl: uploadUrl as string, zipBuffer})
 
     // Derive status URL and poll (from either create or upload response)
@@ -254,8 +256,9 @@ export default class Deploy extends Base {
     const resolvedStatusUrl = statusUrl ? this.resolveStatusUrl(instanceUrl, statusUrl) : undefined
     this.deployDebug('SSOT status URL', {status_url: statusUrl, resolved_status_url: resolvedStatusUrl})
     if (process.env.DEBUG) {
-      ux.info(`[datacloud:deploy] SSOT status URL ${JSON.stringify({status_url: statusUrl})}`)
+      ux.info(`[datacloud:compute:deploy] SSOT status URL ${JSON.stringify({status_url: statusUrl})}`)
     }
+
     if (resolvedStatusUrl) {
       await this.pollUntilComplete({statusUrl: resolvedStatusUrl, accessToken})
     }
@@ -286,12 +289,17 @@ export default class Deploy extends Base {
       const curlSnippet = `curl -X POST '${ssotUrl}' -H 'Authorization: ${reqHeaders.Authorization}' -H 'Accept: ${reqHeaders.Accept}' -H 'Content-Type: application/json' --data '${JSON.stringify(body)}'`
       this.deployDebug('SSOT POST curl', {snippet: curlSnippet})
       if (process.env.DEBUG) {
-        ux.info('[datacloud:deploy] SSOT POST curl')
+        ux.info('[datacloud:compute:deploy] SSOT POST curl')
         ux.info(curlSnippet)
       }
-      const postCreateInfo = {url: ssotUrl, headers: reqHeaders}
+
+      const postCreateInfo = {
+        url: ssotUrl,
+        headers: reqHeaders,
+      }
+
       if (process.env.DEBUG) {
-        ux.info(`[datacloud:deploy] SSOT POST (create) ${JSON.stringify(postCreateInfo)}`)
+        ux.info(`[datacloud:compute:deploy] SSOT POST (create) ${JSON.stringify(postCreateInfo)}`)
       }
 
       try {
@@ -307,20 +315,30 @@ export default class Deploy extends Base {
         }
         this.deployDebug('SSOT POST success (create)', successInfo)
         if (process.env.DEBUG) {
-          ux.info(`[datacloud:deploy] SSOT POST success (create) ${JSON.stringify(successInfo)}`)
+          ux.info(`[datacloud:compute:deploy] SSOT POST success (create) ${JSON.stringify(successInfo)}`)
           if (ssotUrl.includes('/ssot/data-custom-code')) {
-            ux.info('[datacloud:deploy] Data Custom Code create API (/ssot/data-custom-code) succeeded')
+            ux.info('[datacloud:compute:deploy] Data Custom Code create API (/ssot/data-custom-code) succeeded')
           }
         }
+
         return response
       } catch (error: any) {
         const status = error?.response?.status
         const data = error?.response?.data
-        const message: string = this.formatErrorData(data, error?.message || 'Deployment failed')
-        this.deployDebug('SSOT POST failed (create)', {url: ssotUrl, status, data, data_keys: data ? Object.keys(data) : [], message})
-        ux.warn('[datacloud:deploy] SSOT POST failed (create)')
+        const message: string = this.formatErrorData(
+          data,
+          error?.message || 'Deployment failed',
+        )
+        this.deployDebug('SSOT POST failed (create)', {
+          url: ssotUrl,
+          status,
+          data,
+          data_keys: data ? Object.keys(data) : [],
+          message,
+        })
+        ux.warn('[datacloud:compute:deploy] SSOT POST failed (create)')
         if (data !== undefined) ux.warn(typeof data === 'string' ? data : JSON.stringify(data))
-        ux.warn(`[datacloud:deploy] Status ${status} Message ${message}`)
+        ux.warn(`[datacloud:compute:deploy] Status ${status} Message ${message}`)
         lastError = error
         if (status && status !== 404) break
       }
@@ -376,7 +394,7 @@ export default class Deploy extends Base {
     const curlSnippet = `curl -X PUT '${uploadUrl}' -H 'Content-Type: application/zip' --data-binary '@/tmp/deployment.zip'`
     this.deployDebug('SSOT PUT (upload)', {url: uploadUrl, headers, bytes: zipBuffer.byteLength})
     if (process.env.DEBUG) {
-      ux.info('[datacloud:deploy] SSOT PUT curl')
+      ux.info('[datacloud:compute:deploy] SSOT PUT curl')
       ux.info(curlSnippet)
     }
 
@@ -385,19 +403,26 @@ export default class Deploy extends Base {
       const putSuccessInfo = {url: uploadUrl, data_keys: response?.data ? Object.keys(response.data) : [], header_keys: response?.headers ? Object.keys(response.headers) : []}
       this.deployDebug('SSOT PUT success (upload)', putSuccessInfo)
       if (process.env.DEBUG) {
-        ux.info(`[datacloud:deploy] SSOT PUT success (upload) ${JSON.stringify(putSuccessInfo)}`)
-        ux.info('[datacloud:deploy] File upload (artifact PUT) succeeded')
+        ux.info(`[datacloud:compute:deploy] SSOT PUT success (upload) ${JSON.stringify(putSuccessInfo)}`)
+        ux.info('[datacloud:compute:deploy] File upload (artifact PUT) succeeded')
       }
+
       return response
     } catch (error: any) {
       const status = error?.response?.status
       const data = error?.response?.data
       const s3Body = typeof data === 'string' ? data : (data ? JSON.stringify(data) : undefined)
       const message: string = data?.message || error?.message || 'Artifact upload failed'
-      this.deployDebug('SSOT PUT failed (upload)', {url: uploadUrl, status, data_keys: data ? Object.keys(data) : [], message, s3_body: s3Body})
-      ux.warn(`[datacloud:deploy] SSOT PUT failed (upload)`)
+      this.deployDebug('SSOT PUT failed (upload)', {
+        url: uploadUrl,
+        status,
+        data_keys: data ? Object.keys(data) : [],
+        message,
+        s3_body: s3Body,
+      })
+      ux.warn('[datacloud:compute:deploy] SSOT PUT failed (upload)')
       if (s3Body) ux.warn(s3Body)
-      ux.warn(`[datacloud:deploy] Status ${status} Message ${message}`)
+      ux.warn(`[datacloud:compute:deploy] Status ${status} Message ${message}`)
       ux.action.stop('failed')
       ux.error(message, {exit: 1})
     }
@@ -415,19 +440,20 @@ export default class Deploy extends Base {
         status = (data?.status || data?.state || '').toString()
         this.deployDebug('Polling status', {status})
         if (process.env.DEBUG) {
-          ux.info(`[datacloud:deploy] Polling status ${JSON.stringify({status})}`)
+          ux.info(`[datacloud:compute:deploy] Polling status ${JSON.stringify({status})}`)
         }
+
         ux.action.status = status
         if (['failed', 'error'].includes(status)) {
           const errMsg: string = data?.message || 'Deployment failed'
           this.deployDebug('Polling indicates failure', {message: errMsg})
-          ux.warn(`[datacloud:deploy] Polling indicates failure ${JSON.stringify({message: errMsg})}`)
+          ux.warn(`[datacloud:compute:deploy] Polling indicates failure ${JSON.stringify({message: errMsg})}`)
           ux.action.stop('failed')
           ux.error(errMsg, {exit: 1})
         }
       } catch (error: any) {
         this.deployDebug('Polling request failed', {message: error?.message, status: error?.response?.status})
-        ux.warn(`[datacloud:deploy] Polling request failed ${JSON.stringify({message: error?.message, status: error?.response?.status})}`)
+        ux.warn(`[datacloud:compute:deploy] Polling request failed ${JSON.stringify({message: error?.message, status: error?.response?.status})}`)
         break
       }
     }
@@ -452,11 +478,11 @@ export default class Deploy extends Base {
       path?: string
       timeout?: number
       env?: string[]
-      'authorization-name': string
+      authorization: string
       'override-token'?: string
     }
 
-    const authorizationName = (flags as any)['authorization-name'] as string
+    const authorizationName = (flags as any).authorization as string
     const envVars = this.parseEnv((flags as any).env as string[] | undefined)
     const pkgName = name
 
@@ -465,11 +491,11 @@ export default class Deploy extends Base {
 
     const {accessToken, instanceUrl, apiVersion} = await this.retrieveAuthorization(authorizationName, app, addon)
 
-    const envOverrideUrl = process.env.DEPLOY_INSTANCE_URL
+    const envOverrideUrl = process.env.DATA_CLOUD_INSTANCE_URL
     const effectiveInstanceUrl = envOverrideUrl && envOverrideUrl.trim().length > 0 ? envOverrideUrl.trim() : instanceUrl
     this.deployDebug('Effective instance URL', {instance_url: effectiveInstanceUrl, overridden: Boolean(envOverrideUrl)})
 
-    const envOverrideToken = process.env.DEPLOY_ACCESS_TOKEN
+    const envOverrideToken = process.env.DATA_CLOUD_ACCESS_TOKEN
     const flagOverrideToken = (flags as any)['override-token'] as string | undefined
     const effectiveAccessToken = (flagOverrideToken && flagOverrideToken.trim()) || (envOverrideToken && envOverrideToken.trim()) || accessToken
     this.deployDebug('Effective access token', {overridden: Boolean(flagOverrideToken || envOverrideToken), access_token: effectiveAccessToken})
@@ -517,7 +543,7 @@ export default class Deploy extends Base {
         const tmpZipPath = path.join(tmpDir, 'deployment.zip')
         fs.writeFileSync(tmpZipPath, zipBuffer)
         this.deployDebug('Saved local zip copy', {path: tmpZipPath, bytes: zipBuffer.byteLength})
-        ux.info(`[datacloud:deploy] Saved zip ${JSON.stringify({path: tmpZipPath, bytes: zipBuffer.byteLength})}`)
+        ux.info(`[datacloud:compute:deploy] Saved zip ${JSON.stringify({path: tmpZipPath, bytes: zipBuffer.byteLength})}`)
       } catch (error: any) {
         this.deployDebug('Failed to save local zip copy', {message: error?.message})
       }
